@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/28699863/README.md)
 # FaxFlow
 
 Automated inbound-fax triage for clinics. Point it at a folder of fax PDFs and
@@ -44,7 +43,7 @@ python -m faxflow process ./inbox --out ./sorted
 
 Then open `sorted/` and `sorted/review_queue.json`.
 
-## Run on real faxes
+## Run on real faxes (from a folder)
 
 ```bash
 python -m faxflow process /path/to/fax/folder --out ./sorted
@@ -52,6 +51,23 @@ python -m faxflow process /path/to/fax/folder --out ./sorted
 
 By default files are **copied**, not moved, so your originals are untouched.
 Pass `--move` only when you're confident.
+
+## Pull faxes straight from email (IMAP)
+
+Add the `FAXFLOW_IMAP_*` settings to `.env` (see `.env.example`), then:
+
+```bash
+python -m faxflow fetch --out ./inbox     # download PDF attachments only
+python -m faxflow run                      # fetch + classify + sort in one step
+```
+
+- **Read-only by default.** FaxFlow does not mark, move, or delete messages
+  unless you set `FAXFLOW_IMAP_MARK_SEEN=true`, so re-runs are safe and your
+  mailbox is never mutated by surprise.
+- Use `FAXFLOW_IMAP_SEARCH` (e.g. `UNSEEN`, `ALL`) and `FAXFLOW_IMAP_FROM` to
+  scope which emails are pulled.
+- For Gmail / Microsoft 365, generate an **app password** — your normal login
+  password won't work with IMAP.
 
 ## Configuration (.env)
 
@@ -62,6 +78,7 @@ Pass `--move` only when you're confident.
 | `FAXFLOW_CONFIDENCE_THRESHOLD` | `0.75` | below this → review queue |
 | `FAXFLOW_MAX_PAGES` | `3` | pages per fax sent to the model |
 
+## ⚠️ Compliance — read before using real faxes
 
 Faxes contain PHI. Sending them to any cloud API requires a signed **Business
 Associate Agreement (BAA)** with the vendor, plus encryption, access controls,
@@ -69,14 +86,19 @@ and audit logging. Do **not** run this on real patient data until that is in
 place. The synthetic generator (`make_sample_faxes.py`) uses only fake data and
 is safe for development.
 
+## Architecture
+
 - `faxflow/pdf_utils.py` — rasterize fax PDFs to PNG
 - `faxflow/classifier.py` — Claude vision + tool-use → structured fields
 - `faxflow/router.py` — confidence-gated filing logic
+- `faxflow/email_connector.py` — IMAP fetch of PDF attachments (stdlib only)
 - `faxflow/pipeline.py` — orchestration + manifest/review-queue output
-- `faxflow/cli.py` — `faxflow process` command
+- `faxflow/cli.py` — `faxflow process` / `fetch` / `run` commands
 
-1. **Now:** CLI on a folder (this).
-2. Email connector (IMAP) to auto-pull fax emails.
-3. Review dashboard for the medical assistant.
+## Roadmap
+
+1. ~~CLI on a folder~~ ✅
+2. ~~Email connector (IMAP) to auto-pull fax emails~~ ✅
+3. **Next:** Review dashboard for the medical assistant.
 4. E-signature instead of print → sign → refax.
 5. SRS / HL7 / FHIR write-back (the defensible moat).
